@@ -1,0 +1,18 @@
+#!/bin/sh
+
+CC=musl-gcc
+
+cd lua
+$CC -c *.c
+cd ..
+
+cd sys
+$CC -c *.unix.c
+$CC -c linenoise.c
+cd ..
+
+$CC -c main.c
+
+$CC main.o lua/*.o sys/*.o -o tiny
+
+
