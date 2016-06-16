@@ -19,24 +19,50 @@ static int sl_strdup(lua_State *L){
 }
 
 static int sl_arraycopy(lua_State *L){
-	size_t sl,dl,of,ln;
+	size_t sl,dl,sof,dof,ln;
 	const char* sb = buflib_output(L, 1, &sl);
 	char* db = buflib_input(L, 2, &dl);
+	sof = lua_tointeger(L,3);
+	dof = lua_tointeger(L,4);
+	if(sof>sl)sof=sl;
+	if(dof>dl)dof=dl;
+	sb += sof; db += dof;
+	sl -= sof; dl -= dof;
 	if(sl>dl)sl = dl;
-	of = lua_tointeger(L,3);
-	if(sl<of)return 0;
-	sb += of; db += of;
-	sl -= of; dl -= of;
-	ln = lua_tointeger(L,4);
+	ln = lua_tointeger(L,5);
 	if((ln<1) || (ln>sl))ln = sl;
 	memmove(db,sb,ln);
 	return 0;
 }
 
+static int sl_strstr(lua_State *L){
+	size_t sz1,sz2,p1,p2,p1f;
+	const char* sp1 = buflib_output(L, 1, &sz1);
+	const char* sp2 = buflib_output(L, 2, &sz2);
+	p1 = lua_tointeger(L,3);
+	lua_pushnumber(L,-1);
+	if(!(sp1&&sp2))return 1;
+	if(sz2<1)return 1;
+	
+	for(;p1<sz1;++p1){
+		if(sp1[p1]!=*sp2) continue;
+		for(p1f=p1+1,p2=1;(p1f<sz1) && (p2<sz2);++p1f,++p2){
+			if(sp1[p1f]==sp2[p2]) continue;
+			p2=0;
+			break;
+		}
+		if(p2==sz2){
+			lua_pushinteger(L,p1);
+			return 1;
+		}
+	}
+	return 1;
+}
 
 void strlib_install(lua_State *ls){
 	lua_register(ls,"strdup",sl_strdup);
 	lua_register(ls,"arraycopy",sl_arraycopy);
+	lua_register(ls,"strstr",sl_strstr);
 }
 
 
