@@ -5,7 +5,7 @@
 #include "syscalls.h"
 #include "../lua/lauxlib.h"
 
-int lsc_pid (lua_State *L){
+static int lsc_pid (lua_State *L){
 	lua_settop(L,1);
 	pid_t* pid = lua_newuserdata(L,sizeof(pid_t));
 	luaL_getmetatable(L,"pid_t");
@@ -13,7 +13,7 @@ int lsc_pid (lua_State *L){
 	*pid = lua_tointeger(L,1);
 	return 1;
 }
-int lsc_uid (lua_State *L){
+static int lsc_uid (lua_State *L){
 	lua_settop(L,1);
 	uid_t* uid = lua_newuserdata(L,sizeof(uid_t));
 	luaL_getmetatable(L,"uid_t");
@@ -21,7 +21,7 @@ int lsc_uid (lua_State *L){
 	*uid = lua_tointeger(L,1);
 	return 1;
 }
-int lsc_gid (lua_State *L){
+static int lsc_gid (lua_State *L){
 	lua_settop(L,1);
 	gid_t* gid = lua_newuserdata(L,sizeof(gid_t));
 	luaL_getmetatable(L,"gid_t");
@@ -30,7 +30,7 @@ int lsc_gid (lua_State *L){
 	return 1;
 }
 
-int lsc_fork (lua_State *L){
+static int lsc_fork (lua_State *L){
 	lua_settop(L,0);
 	pid_t* pid = lua_newuserdata(L,sizeof(pid_t));
 	luaL_getmetatable(L,"pid_t");
@@ -38,7 +38,7 @@ int lsc_fork (lua_State *L){
 	*pid = fork();
 	return 1;
 }
-int lsc_pipefork (lua_State *L){
+static int lsc_pipefork (lua_State *L){
 	int pipefd[2];
 	pipe(pipefd);
 	lua_settop(L,0);
@@ -58,7 +58,7 @@ int lsc_pipefork (lua_State *L){
 
 typedef const char* STRING;
 
-int lsc_exec (lua_State *L){
+static int lsc_exec (lua_State *L){
 	int i;
 	lua_settop(L,1);
 	lua_len(L,1);
@@ -83,7 +83,7 @@ int lsc_exec (lua_State *L){
 	return 0;
 }
 
-int lsc_isvalid (lua_State *L){
+static int lsc_isvalid (lua_State *L){
 	pid_t* pid = luaL_testudata(L,1,"pid_t");
 	if(pid){
 		lua_pushboolean(L,*pid<0);
@@ -91,7 +91,7 @@ int lsc_isvalid (lua_State *L){
 	}
 	return 0;
 }
-int lsc_is0 (lua_State *L){
+static int lsc_is0 (lua_State *L){
 	pid_t* pid = luaL_testudata(L,1,"pid_t");
 	if(pid){
 		lua_pushboolean(L,!*pid);
@@ -100,7 +100,7 @@ int lsc_is0 (lua_State *L){
 	return 0;
 }
 
-int lsc_asint (lua_State *L){
+static int lsc_asint (lua_State *L){
 	pid_t* pid = luaL_testudata(L,1,"pid_t");
 	if(pid){
 		lua_pushinteger(L,*pid);
@@ -119,7 +119,7 @@ int lsc_asint (lua_State *L){
 	printf("C: pid,uid,gid %p %p %p\n",pid,uid,gid);
 	return 0;
 }
-int lsc_asstr (lua_State *L){
+static int lsc_asstr (lua_State *L){
 	pid_t* pid = luaL_testudata(L,1,"pid_t");
 	if(pid){
 		lua_pushfstring(L,"pid(%I)",(lua_Integer)(*pid));
@@ -144,19 +144,19 @@ int lsc_asstr (lua_State *L){
 	return 1;
 }
 
-int lsc_setuid (lua_State *L){
+static int lsc_setuid (lua_State *L){
 	uid_t* uid = luaL_checkudata(L,1,"uid_t");
 	lua_pushboolean(L,!setuid(*uid));
 	return 1;
 }
 
-int lsc_setgid (lua_State *L){
+static int lsc_setgid (lua_State *L){
 	gid_t* gid = luaL_checkudata(L,1,"gid_t");
 	lua_pushboolean(L,!setgid(*gid));
 	return 1;
 }
 
-int lsc_waitpid (lua_State *L){
+static int lsc_waitpid (lua_State *L){
 	int status;
 	pid_t* pid = luaL_checkudata(L,1,"pid_t");
 	lua_pushinteger(L,waitpid(*pid, &status, 0));
@@ -164,9 +164,30 @@ int lsc_waitpid (lua_State *L){
 	lua_pushinteger(L,status);
 	return 2;
 }
-int lsc_exit (lua_State *L){
+static int lsc_exit (lua_State *L){
 	_exit(lua_tointeger(L,1));
 	return 0;
+}
+
+static int lsc_bfd_rewind (lua_State *L){
+	int *ptr = lua_touserdata(L,lua_upvalueindex(1));
+	if(lua_toboolean(L,1))
+		dup2(ptr[1],ptr[0]);
+	close(ptr[1]);
+	return 0;
+}
+static int lsc_backupfd (lua_State *L){
+	int ofd,nfd;
+	lua_settop(L,1);
+	ofd = lua_tointeger(L,1);
+	int *ptr = lua_newuserdata(L,sizeof(int)*2);
+	nfd = dup(ofd);
+	if(nfd<0)return 0;
+
+	ptr[0]=ofd;
+	ptr[1]=nfd;
+	lua_pushcclosure(L,lsc_bfd_rewind,1);
+	return 1;
 }
 
 
@@ -197,6 +218,8 @@ void syscalls_install(lua_State *ls){
 	lua_register(ls,"waitpid" ,lsc_waitpid);
 	lua_register(ls,"exit"    ,lsc_exit);
 	lua_register(ls,"exec"    ,lsc_exec);
+	lua_register(ls,"backupfd",lsc_backupfd);
+
 	lua_settop(ls,top);
 }
 
