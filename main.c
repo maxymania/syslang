@@ -22,6 +22,8 @@ int main(int argc,const STRING* argv){
 	luaL_openlibs(ls);
 	syscalls_install(ls);
 	luanoise_install(ls);
+	buflib_install(ls);
+	strlib_install(ls);
 	lps(ls,1,argc,argv);
 	if(argc<2) return -1;
 	if(luaL_loadfile(ls,argv[1])) return -1;
