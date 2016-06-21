@@ -59,10 +59,26 @@ static int sl_strstr(lua_State *L){
 	return 1;
 }
 
+static int sl_div(lua_State *L){
+	lua_settop(L,2);
+	lua_pushliteral(L,"/");
+	lua_insert(L,2);
+	lua_concat(L,3);
+	return 1;
+}
+
 void strlib_install(lua_State *ls){
 	lua_register(ls,"strdup",sl_strdup);
 	lua_register(ls,"arraycopy",sl_arraycopy);
 	lua_register(ls,"strstr",sl_strstr);
+
+	int top = lua_gettop(ls);
+		lua_pushstring(ls,"");
+		lua_getmetatable(ls,top+1);
+		lua_pushstring(ls,"__div");
+		lua_pushcfunction(ls,sl_div);
+		lua_settable(ls,top+2);
+	lua_settop(ls,top);
 }
 
 
